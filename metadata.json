@@ -1,0 +1,6 @@
+{
+  "name": "DAMCA & Creative Portfolio",
+  "description": "Cinematic luxury digital ecosystem featuring high-end Creative Director & Video Editor portfolio and DAMCA Academy for professional editing education.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
