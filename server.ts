@@ -1,11 +1,12 @@
 import express from 'express';
 import crypto from 'node:crypto';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { INITIAL_PROJECTS, INITIAL_PROGRAMS, TESTIMONIALS_DATA, INITIAL_ROADMAP, INITIAL_MEDIA_CONFIG } from './src/data/mockData';
 import type { ContactInquiry, StudentRegistration } from './src/types';
 
-const root = path.dirname(fileURLToPath(import.meta.url));
+// `import.meta.url` is undefined after Netlify bundles this module as CommonJS.
+// Netlify and the local start script both execute from the application root.
+const root = process.cwd();
 const port = Number(process.env.PORT || 8787);
 const production = process.env.NODE_ENV === 'production';
 const supabaseUrl = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
@@ -57,7 +58,7 @@ app.put('/api/admin/data/:key', requireAdmin, async (req, res, next) => { try { 
 app.post('/api/admin/reset', requireAdmin, async (_req, res, next) => { try { await sb('/rest/v1/site_content?on_conflict=key', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(contentKeys.map(key => ({ key, value: defaults[key] }))) }); await Promise.all([sb('/rest/v1/contacts?id=not.is.null', { method: 'DELETE' }), sb('/rest/v1/students?id=not.is.null', { method: 'DELETE' })]); res.json({ ...defaults, contacts: [], students: [] }); } catch (e) { next(e); } });
 app.post('/api/contact', limited, async (req, res, next) => { try { if (!clean(req.body?.name,100) || !validEmail(req.body?.email) || !clean(req.body?.description,4000)) return res.status(400).json({ error: 'Name, valid email, and project description are required.' }); const id = crypto.randomUUID(); await sb('/rest/v1/contacts', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ id, name: clean(req.body.name,100), email: clean(req.body.email,254), phone: clean(req.body.phone,40) || null, company: clean(req.body.company,150) || 'Direct Client', budget: clean(req.body.budget,100), project_type: clean(req.body.projectType,100), description: clean(req.body.description,4000) }) }); res.status(201).json({ ok: true, id }); } catch (e) { next(e); } });
 app.post('/api/enroll', limited, async (req, res, next) => { try { if (!clean(req.body?.fullName,100) || !validEmail(req.body?.email) || !clean(req.body?.phone,40)) return res.status(400).json({ error: 'Name, valid email, and phone are required.' }); const id = crypto.randomUUID(); await sb('/rest/v1/students', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ id, full_name: clean(req.body.fullName,100), email: clean(req.body.email,254), phone: clean(req.body.phone,40), program_id: clean(req.body.programId,100), program_title: clean(req.body.programTitle,150), payment_preference: ['paid','installment','scholarship'].includes(req.body.paymentPreference) ? req.body.paymentPreference : 'pending', tuition_amount: clean(req.body.tuitionAmount,50) }) }); res.status(201).json({ ok: true, id }); } catch (e) { next(e); } });
-if (production) { app.use(express.static(path.join(root, 'dist'))); app.get('*', (_req, res) => res.sendFile(path.join(root, 'dist', 'index.html'))); }
+if (production && !process.env.NETLIFY) { app.use(express.static(path.join(root, 'dist'))); app.get('*', (_req, res) => res.sendFile(path.join(root, 'dist', 'index.html'))); }
 app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => { console.error(error); res.status(500).json({ error: 'Database request failed.' }); });
 if (!process.env.NETLIFY) app.listen(port, () => console.log(`DAMCA Supabase server listening on http://localhost:${port}`));
 
