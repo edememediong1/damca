@@ -28,6 +28,10 @@ Run `npm install`, `npm run lint`, `npm run build`, then start with `NODE_ENV=pr
 
 Configure all Supabase variables, `ADMIN_EMAILS`, `SESSION_SECRET`, and `PORT`. The Supabase secret key must only exist on the server. The production server serves the built SPA and API from one origin.
 
+### Netlify
+
+The included `netlify.toml` builds the Vite site, deploys the Express API as a Netlify Function, and sends client-side routes such as `/admin` to `index.html`. Add `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `ADMIN_EMAILS`, and `SESSION_SECRET` under Site configuration → Environment variables, then trigger a fresh deploy. Do not prefix the secret key with `VITE_`.
+
 ## Data and integrations
 
 CMS content is stored in `site_content`; CRM leads are stored in `contacts`; academy applicants and students are stored in `students`. Row-level security is enabled and browser access is denied—the server performs authorized operations with the private service role.

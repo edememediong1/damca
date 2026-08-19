@@ -59,4 +59,6 @@ app.post('/api/contact', limited, async (req, res, next) => { try { if (!clean(r
 app.post('/api/enroll', limited, async (req, res, next) => { try { if (!clean(req.body?.fullName,100) || !validEmail(req.body?.email) || !clean(req.body?.phone,40)) return res.status(400).json({ error: 'Name, valid email, and phone are required.' }); const id = crypto.randomUUID(); await sb('/rest/v1/students', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ id, full_name: clean(req.body.fullName,100), email: clean(req.body.email,254), phone: clean(req.body.phone,40), program_id: clean(req.body.programId,100), program_title: clean(req.body.programTitle,150), payment_preference: ['paid','installment','scholarship'].includes(req.body.paymentPreference) ? req.body.paymentPreference : 'pending', tuition_amount: clean(req.body.tuitionAmount,50) }) }); res.status(201).json({ ok: true, id }); } catch (e) { next(e); } });
 if (production) { app.use(express.static(path.join(root, 'dist'))); app.get('*', (_req, res) => res.sendFile(path.join(root, 'dist', 'index.html'))); }
 app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => { console.error(error); res.status(500).json({ error: 'Database request failed.' }); });
-app.listen(port, () => console.log(`DAMCA Supabase server listening on http://localhost:${port}`));
+if (!process.env.NETLIFY) app.listen(port, () => console.log(`DAMCA Supabase server listening on http://localhost:${port}`));
+
+export default app;
