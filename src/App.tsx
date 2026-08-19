@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { 
   ViewMode, 
   Project, 
@@ -13,8 +13,6 @@ import {
   INITIAL_PROJECTS, 
   INITIAL_PROGRAMS, 
   INITIAL_ROADMAP, 
-  INITIAL_CONTACTS,
-  INITIAL_STUDENTS,
   INITIAL_MEDIA_CONFIG,
   INDUSTRIES_SERVED, 
   SERVICES_DATA, 
@@ -23,90 +21,38 @@ import {
   ACADEMY_FEES, 
   ACADEMY_FAQS 
 } from './data/mockData';
-import { SplitLanding } from './components/SplitLanding';
-import { PortfolioView } from './components/PortfolioView';
-import { AcademyView } from './components/AcademyView';
-import { CaseStudyModal } from './components/CaseStudyModal';
-import { AdminDashboard } from './components/AdminDashboard';
-import { Settings, Shield } from 'lucide-react';
+import { api, AdminContent } from './api';
 
-const STORAGE_KEYS = {
-  PROJECTS: 'damca_cms_projects_v2',
-  PROGRAMS: 'damca_cms_programs_v2',
-  TESTIMONIALS: 'damca_cms_testimonials_v2',
-  CONTACTS: 'damca_cms_contacts_v2',
-  STUDENTS: 'damca_cms_students_v2',
-  ROADMAP: 'damca_cms_roadmap_v2',
-  MEDIA_CONFIG: 'damca_cms_media_config_v2',
-};
+const SplitLanding = lazy(() => import('./components/SplitLanding').then(m => ({ default: m.SplitLanding })));
+const PortfolioView = lazy(() => import('./components/PortfolioView').then(m => ({ default: m.PortfolioView })));
+const AcademyView = lazy(() => import('./components/AcademyView').then(m => ({ default: m.AcademyView })));
+const CaseStudyModal = lazy(() => import('./components/CaseStudyModal').then(m => ({ default: m.CaseStudyModal })));
+const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
+const AdminLogin = lazy(() => import('./components/AdminLogin').then(m => ({ default: m.AdminLogin })));
 
 export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('split');
   const [selectedCaseStudy, setSelectedCaseStudy] = useState<Project | null>(null);
+  const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
+  const [programs, setPrograms] = useState<AcademyProgram[]>(INITIAL_PROGRAMS);
+  const [testimonials, setTestimonials] = useState<Testimonial[]>(TESTIMONIALS_DATA);
+  const [contacts, setContacts] = useState<ContactInquiry[]>([]);
+  const [students, setStudents] = useState<StudentRegistration[]>([]);
+  const [roadmap, setRoadmap] = useState<RoadmapWeek[]>(INITIAL_ROADMAP);
+  const [mediaConfig, setMediaConfig] = useState<SiteMediaConfig>(INITIAL_MEDIA_CONFIG);
+  const [adminAuthenticated, setAdminAuthenticated] = useState(false);
 
-  // Dynamic CMS state initialized from LocalStorage or default mockData
-  const [projects, setProjects] = useState<Project[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.PROJECTS);
-      return saved ? JSON.parse(saved) : INITIAL_PROJECTS;
-    } catch {
-      return INITIAL_PROJECTS;
-    }
-  });
+  const applyContent = (data: Partial<AdminContent>) => {
+    if (data.projects) setProjects(data.projects); if (data.programs) setPrograms(data.programs);
+    if (data.testimonials) setTestimonials(data.testimonials); if (data.roadmap) setRoadmap(data.roadmap);
+    if (data.mediaConfig) setMediaConfig(data.mediaConfig); if (data.contacts) setContacts(data.contacts);
+    if (data.students) setStudents(data.students);
+  };
 
-  const [programs, setPrograms] = useState<AcademyProgram[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.PROGRAMS);
-      return saved ? JSON.parse(saved) : INITIAL_PROGRAMS;
-    } catch {
-      return INITIAL_PROGRAMS;
-    }
-  });
-
-  const [testimonials, setTestimonials] = useState<Testimonial[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.TESTIMONIALS);
-      return saved ? JSON.parse(saved) : TESTIMONIALS_DATA;
-    } catch {
-      return TESTIMONIALS_DATA;
-    }
-  });
-
-  const [contacts, setContacts] = useState<ContactInquiry[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.CONTACTS);
-      return saved ? JSON.parse(saved) : INITIAL_CONTACTS;
-    } catch {
-      return INITIAL_CONTACTS;
-    }
-  });
-
-  const [students, setStudents] = useState<StudentRegistration[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.STUDENTS);
-      return saved ? JSON.parse(saved) : INITIAL_STUDENTS;
-    } catch {
-      return INITIAL_STUDENTS;
-    }
-  });
-
-  const [roadmap, setRoadmap] = useState<RoadmapWeek[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.ROADMAP);
-      return saved ? JSON.parse(saved) : INITIAL_ROADMAP;
-    } catch {
-      return INITIAL_ROADMAP;
-    }
-  });
-
-  const [mediaConfig, setMediaConfig] = useState<SiteMediaConfig>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.MEDIA_CONFIG);
-      return saved ? JSON.parse(saved) : INITIAL_MEDIA_CONFIG;
-    } catch {
-      return INITIAL_MEDIA_CONFIG;
-    }
-  });
+  useEffect(() => { api.publicContent().then(applyContent).catch(error => console.error('Unable to load server content', error)); }, []);
+  useEffect(() => {
+    if (viewMode === 'admin') api.adminContent().then(data => { applyContent(data); setAdminAuthenticated(true); }).catch(() => setAdminAuthenticated(false));
+  }, [viewMode]);
 
   // URL Route Synchronization
   const syncRouteWithUrl = useCallback(() => {
@@ -161,97 +107,56 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Save changes to state & localStorage
+  const persist = <K extends keyof AdminContent>(key: K, value: AdminContent[K]) => {
+    void api.save(key, value).catch(error => window.alert(`The server could not save this change: ${error.message}`));
+  };
+
   const handleSaveProjects = (newProjects: Project[]) => {
     setProjects(newProjects);
-    try {
-      localStorage.setItem(STORAGE_KEYS.PROJECTS, JSON.stringify(newProjects));
-    } catch (e) {
-      console.error('Failed to save projects to localStorage', e);
-    }
+    persist('projects', newProjects);
   };
 
   const handleSavePrograms = (newPrograms: AcademyProgram[]) => {
     setPrograms(newPrograms);
-    try {
-      localStorage.setItem(STORAGE_KEYS.PROGRAMS, JSON.stringify(newPrograms));
-    } catch (e) {
-      console.error('Failed to save programs to localStorage', e);
-    }
+    persist('programs', newPrograms);
   };
 
   const handleSaveTestimonials = (newTestimonials: Testimonial[]) => {
     setTestimonials(newTestimonials);
-    try {
-      localStorage.setItem(STORAGE_KEYS.TESTIMONIALS, JSON.stringify(newTestimonials));
-    } catch (e) {
-      console.error('Failed to save testimonials to localStorage', e);
-    }
+    persist('testimonials', newTestimonials);
   };
 
   const handleSaveContacts = (newContacts: ContactInquiry[]) => {
     setContacts(newContacts);
-    try {
-      localStorage.setItem(STORAGE_KEYS.CONTACTS, JSON.stringify(newContacts));
-    } catch (e) {
-      console.error('Failed to save contacts to localStorage', e);
-    }
+    persist('contacts', newContacts);
   };
 
   const handleSaveStudents = (newStudents: StudentRegistration[]) => {
     setStudents(newStudents);
-    try {
-      localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(newStudents));
-    } catch (e) {
-      console.error('Failed to save students to localStorage', e);
-    }
+    persist('students', newStudents);
   };
 
   const handleSaveRoadmap = (newRoadmap: RoadmapWeek[]) => {
     setRoadmap(newRoadmap);
-    try {
-      localStorage.setItem(STORAGE_KEYS.ROADMAP, JSON.stringify(newRoadmap));
-    } catch (e) {
-      console.error('Failed to save roadmap to localStorage', e);
-    }
+    persist('roadmap', newRoadmap);
   };
 
   const handleSaveMediaConfig = (newConfig: SiteMediaConfig) => {
     setMediaConfig(newConfig);
-    try {
-      localStorage.setItem(STORAGE_KEYS.MEDIA_CONFIG, JSON.stringify(newConfig));
-    } catch (e) {
-      console.error('Failed to save mediaConfig to localStorage', e);
-    }
+    persist('mediaConfig', newConfig);
   };
 
   // Live client submissions
-  const handleAddContact = (inquiry: ContactInquiry) => {
-    const updated = [inquiry, ...contacts];
-    handleSaveContacts(updated);
-  };
+  const handleAddContact = async (inquiry: ContactInquiry) => { await api.contact(inquiry); };
 
-  const handleEnrollStudent = (student: StudentRegistration) => {
-    const updated = [student, ...students];
-    handleSaveStudents(updated);
-  };
+  const handleEnrollStudent = async (student: StudentRegistration) => { await api.enroll(student); };
 
   const handleResetDefaults = () => {
-    setProjects(INITIAL_PROJECTS);
-    setPrograms(INITIAL_PROGRAMS);
-    setTestimonials(TESTIMONIALS_DATA);
-    setContacts(INITIAL_CONTACTS);
-    setStudents(INITIAL_STUDENTS);
-    setRoadmap(INITIAL_ROADMAP);
-    setMediaConfig(INITIAL_MEDIA_CONFIG);
-    try {
-      Object.values(STORAGE_KEYS).forEach((key) => localStorage.removeItem(key));
-    } catch (e) {
-      console.error('Failed to clear localStorage', e);
-    }
+    void api.reset().then(applyContent).catch(error => window.alert(error.message));
   };
 
   return (
+    <Suspense fallback={<div className="min-h-screen grid place-items-center bg-[#050505] text-[#C8A24A]">Loading DAMCA…</div>}>
     <div className="relative min-h-screen bg-[#050505] text-white font-body selection:bg-[#C8A24A] selection:text-black">
       
       {/* View Router */}
@@ -300,7 +205,14 @@ export default function App() {
       )}
 
       {/* Dedicated /admin CMS Route */}
-      {viewMode === 'admin' && (
+      {viewMode === 'admin' && !adminAuthenticated && (
+        <AdminLogin
+          onLogin={async (email, password) => { await api.login(email, password); const data = await api.adminContent(); applyContent(data); setAdminAuthenticated(true); }}
+          onClose={() => navigateTo('split', '/')}
+        />
+      )}
+
+      {viewMode === 'admin' && adminAuthenticated && (
         <AdminDashboard
           projects={projects}
           programs={programs}
@@ -325,21 +237,6 @@ export default function App() {
         />
       )}
 
-      {/* Floating Discreet Admin Command Button for instant navigation */}
-      {viewMode !== 'admin' && (
-        <div className="fixed bottom-4 left-4 z-40">
-          <button
-            id="admin-cmd-shortcut"
-            onClick={() => navigateTo('admin', '/admin')}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/80 hover:bg-[#C8A24A] text-white/60 hover:text-black border border-white/15 hover:border-[#C8A24A] text-xs font-mono backdrop-blur-md transition-all shadow-xl group"
-            title="Open Admin CMS & Control Center (/admin)"
-          >
-            <Shield size={13} className="text-[#C8A24A] group-hover:text-black transition-colors" />
-            <span className="text-[11px] font-medium tracking-wider">/admin</span>
-          </button>
-        </div>
-      )}
-
       {/* Case Study Modal */}
       {selectedCaseStudy && (
         <CaseStudyModal
@@ -351,5 +248,6 @@ export default function App() {
       )}
 
     </div>
+    </Suspense>
   );
 }

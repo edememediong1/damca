@@ -44,7 +44,7 @@ interface AcademyViewProps {
   testimonials: Testimonial[];
   mediaConfig?: SiteMediaConfig;
   onSwitchToPortfolio: () => void;
-  onEnrollStudent?: (student: StudentRegistration) => void;
+  onEnrollStudent?: (student: StudentRegistration) => Promise<void>;
 }
 
 export const AcademyView: React.FC<AcademyViewProps> = ({
@@ -83,9 +83,8 @@ export const AcademyView: React.FC<AcademyViewProps> = ({
     }
   };
 
-  const handleEnrollSubmit = (e: React.FormEvent) => {
+  const handleEnrollSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setEnrollSubmitted(true);
 
     const newStudent: StudentRegistration = {
       id: `stu-${Date.now()}`,
@@ -95,15 +94,20 @@ export const AcademyView: React.FC<AcademyViewProps> = ({
       programId: 'prog-live-cohort',
       programTitle: selectedPlanForEnroll,
       paymentPreference: enrollForm.paymentPreference,
-      enrollmentStatus: 'active',
+      enrollmentStatus: 'applied',
       registeredDate: new Date().toISOString().split('T')[0],
-      progressPercentage: 5,
-      assignedMentor: 'DAMCA Lead Director',
+      progressPercentage: 0,
       tuitionAmount: '$1,200',
       notes: 'Enrolled via Academy web page'
     };
 
-    onEnrollStudent?.(newStudent);
+    try {
+      await onEnrollStudent?.(newStudent);
+      setEnrollSubmitted(true);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Unable to submit your application.');
+      return;
+    }
 
     confetti({
       particleCount: 100,
@@ -794,7 +798,7 @@ export const AcademyView: React.FC<AcademyViewProps> = ({
 
           <button
             onClick={() => {
-              window.open('https://wa.me/2348000000000', '_blank');
+              window.location.href = 'mailto:contact@damcastudios.com?subject=DAMCA%20Academy%20question';
             }}
             className="px-8 py-3.5 rounded-full border border-white/30 bg-black/40 backdrop-blur-md text-white font-medium text-xs md:text-sm tracking-widest uppercase hover:border-[#C8A24A] hover:text-[#C8A24A] transition-all"
           >

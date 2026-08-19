@@ -58,7 +58,7 @@ interface PortfolioViewProps {
   mediaConfig?: SiteMediaConfig;
   onOpenCaseStudy: (project: Project) => void;
   onSwitchToAcademy: () => void;
-  onAddContact?: (inquiry: ContactInquiry) => void;
+  onAddContact?: (inquiry: ContactInquiry) => Promise<void>;
 }
 
 const CATEGORY_TABS: ProjectCategory[] = [
@@ -110,9 +110,8 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
     ? projects
     : projects.filter((p) => p.category === selectedCategory);
 
-  const handleInquirySubmit = (e: React.FormEvent) => {
+  const handleInquirySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setFormSubmitted(true);
 
     const newInquiry: ContactInquiry = {
       id: `contact-${Date.now()}`,
@@ -126,7 +125,13 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
       status: 'new'
     };
 
-    onAddContact?.(newInquiry);
+    try {
+      await onAddContact?.(newInquiry);
+      setFormSubmitted(true);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Unable to send your inquiry.');
+      return;
+    }
 
     confetti({
       particleCount: 80,
@@ -906,20 +911,18 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
               </a>
 
               <a
-                href="https://wa.me/2348000000000"
-                target="_blank"
-                rel="noreferrer"
+                href="mailto:contact@damcastudios.com"
                 className="flex items-center gap-3 text-sm text-white/80 hover:text-[#C8A24A] transition-colors"
               >
                 <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-emerald-400">
                   <MessageCircle size={14} />
                 </div>
-                <span>WhatsApp Direct Line</span>
+                <span>Send a direct email</span>
               </a>
 
               <div className="flex items-center gap-3 pt-2">
                 <a
-                  href="https://instagram.com"
+                  href="mailto:contact@damcastudios.com?subject=Instagram%20profile%20request"
                   target="_blank"
                   rel="noreferrer"
                   className="w-10 h-10 rounded-full border border-white/10 bg-white/5 flex items-center justify-center text-white hover:border-[#C8A24A] hover:text-[#C8A24A] transition-colors"
@@ -928,7 +931,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
                   <Instagram size={16} />
                 </a>
                 <a
-                  href="https://linkedin.com"
+                  href="mailto:contact@damcastudios.com?subject=LinkedIn%20profile%20request"
                   target="_blank"
                   rel="noreferrer"
                   className="w-10 h-10 rounded-full border border-white/10 bg-white/5 flex items-center justify-center text-white hover:border-[#C8A24A] hover:text-[#C8A24A] transition-colors"
